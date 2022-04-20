@@ -13,62 +13,248 @@ library(glm2)
 library(PSweight)
 library(mvtnorm)
 library(rje)
+library(reshape2)
 ```
 
 ```{r}
-set.seed(1652)
+#set.seed(1652)
 
-n = 30
+generate_data <- function(n,p){
+  W_mean = rep(0, p)
+  W_var = diag(p)
+  W = rmvnorm(n = n, mean = W_mean, sigma = W_var)
+}
+
+get_true_treatment <- function(W,n){
+  theta = c(-1, 0.5, -0.25, -0.1)
+  pi = expit(W %*% theta)
+  Z = rbernoulli(n = n, p = pi)
+  return (Z)
+}
+
+get_true_outcome <- function(n,W,Z){
+  ATE_true = 20
+  beta = c(210, 27.4, 13.7, 13.7, 13.7, ATE_true)
+  eps = rnorm(n = n, mean = 0, sd = 1)
+  y = cbind(rep(1, n), W, Z) %*% beta + eps
+  return (y)
+}
+
+get_ATE_true_PS <- function(df_T){
+  glm_t = glm(formula = Z ~ 0 + W_1 + W_2 + W_3 + W_4, family = binomial(link = "logit"), data = df_T)
+
+  pi_pred_W = predict(glm_t, type = "response")
+
+  ATE_PS_norm_T = sum(df_T$Z*df_T$y/pi_pred_W)/sum(df_T$Z/pi_pred_W) - 
+  sum((1 - df_T$Z)*df_T$y/(1 - pi_pred_W))/sum((1 - df_T$Z)/(1 - pi_pred_W))
+  
+  output=list()
+  output[[1]] <- pi_pred_W
+  output[[2]] <- ATE_PS_norm_T
+  return(output)
+}
+
+get_PO_true_model <- function(df_T){
+  lm_y = lm(formula = y ~ 1 + W_1 + W_2 + W_3 + W_4 + Z, data = df_T)
+  lm_y_summ = summary(lm_y)
+  y_coef = lm_y_summ$coefficients
+
+  y0_pred_W = y_coef[1] + y_coef[2]*df_T$W_1 + y_coef[3]*df_T$W_2 +
+  y_coef[4]*df_T$W_3 + y_coef[5]*df_T$W_4
+  y1_pred_W = y_coef[1] + y_coef[2]*df_T$W_1 + y_coef[3]*df_T$W_2 +
+  y_coef[4]*df_T$W_3 + y_coef[5]*df_T$W_4 + y_coef[6]
+  
+  output=list()
+  output[[1]] <- y0_pred_W
+  output[[2]] <- y1_pred_W
+  return(output)
+  }
+
+get_transformed_data <- function(W,y,Z){
+  X_1 = exp(W[,1]/2)
+  X_2 = W[, 2]/(1 + exp(W[,1])) + 10
+  X_3 = (W[,1]*W[,3]*25 + 0.6)^3
+  X_4 = (W[,2] + W[,4] + 20)^2
+  X = t(rbind(X_1, X_2, X_3, X_4))
+  
+  df_F = data.frame(y, X_1, X_2, X_3, X_4, Z)
+  return(df_F)
+}
+
+get_ATE_PS_false <- function(df_F){
+  glm_t_F = glm(formula = Z ~ 0 + X_1 + X_2 + X_3 + X_4, family = binomial(link = "logit"), data = df_F)
+
+  pi_pred_X = predict(glm_t_F, type = "response")
+  ATE_PS_norm_F = sum(df_F$Z*df_F$y/pi_pred_X)/sum(df_F$Z/pi_pred_X) -
+  sum((1 - df_F$Z)*df_F$y/(1 - pi_pred_X))/sum((1 - df_F$Z)/(1 - pi_pred_X))
+  
+  output=list()
+  output[[1]] <- pi_pred_X
+  output[[2]] <- ATE_PS_norm_F
+  return(output)
+  }
+
+get_PO_false_model <- function(df_F){
+  lm_y_F = lm(formula = y ~ 1 + X_1 + X_2 + X_3 + X_4 + Z, data = df_F)
+  lm_y_F_summ = summary(lm_y_F)
+  y_coef_F = lm_y_F_summ$coefficients
+
+  y1_pred_X = y_coef_F[1] + y_coef_F[2]*df_F$X_1 + y_coef_F[3]*df_F$X_2 +
+  y_coef_F[4]*df_F$X_3 + y_coef_F[5]*df_F$X_4 + y_coef_F[6]
+  y0_pred_X = y_coef_F[1] + y_coef_F[2]*df_F$X_1 + y_coef_F[3]*df_F$X_2 +
+  y_coef_F[4]*df_F$X_3 + y_coef_F[5]*df_F$X_4
+  
+  output=list()
+  output[[1]] <- y0_pred_X
+  output[[2]] <- y1_pred_X
+  return(output)
+}
+
+get_DR_estimates <- function(n,y1_pred_W,y1_pred_X,y0_pred_W,y0_pred_X,pi_pred_W,pi_pred_X,df_T){
+  ATE_double_TT = (1/n)*sum(y1_pred_W + df_T$Z*(df_T$y - y1_pred_W)/pi_pred_W) - 
+  (1/n)*sum(y0_pred_W + (1 - df_T$Z)*(df_T$y - y0_pred_W)/(1 - pi_pred_W))
+  
+  ATE_double_TF = (1/n)*sum(y1_pred_W + df_T$Z*(df_T$y - y1_pred_W)/pi_pred_X) - 
+  (1/n)*sum(y0_pred_W + (1 - df_T$Z)*(df_T$y - y0_pred_W)/(1 - pi_pred_X))
+  
+  ATE_double_FT = (1/n)*sum(y1_pred_X + df_T$Z*(df_T$y - y1_pred_X)/pi_pred_W) - 
+  (1/n)*sum(y0_pred_X + (1 - df_T$Z)*(df_T$y - y0_pred_X)/(1 - pi_pred_W))
+  
+  ATE_double_FF = (1/n)*sum(y1_pred_X + df_T$Z*(df_T$y - y1_pred_X)/pi_pred_X) - 
+  (1/n)*sum(y0_pred_X + (1 - df_T$Z)*(df_T$y - y0_pred_X)/(1 - pi_pred_X))
+  
+  output <- c(ATE_double_TT,ATE_double_TF,ATE_double_FT,ATE_double_FF)
+  return(output)
+}
+
+```
+
+```{r}
+runSimulation <- function(W,n){
+  W_1 = W[,1]
+  W_2 = W[,2]
+  W_3 = W[,3]
+  W_4 = W[,4]
+  
+  Z <- get_true_treatment(W,n)
+  y <- get_true_outcome(n,W,Z)
+  
+  df_T = data.frame(y, W_1, W_2, W_3, W_4, Z)
+  
+  output <- get_ATE_true_PS(df_T)
+  pi_pred_W <- output[[1]]
+  ATE_PS_norm_T <- output[[2]]
+  
+  output <- get_PO_true_model(df_T)
+  y0_pred_W <- output[[1]]
+  y1_pred_W <- output[[2]]
+  ATE_outcome_T = (1/n)*sum(Z*(y - y0_pred_W) + (1 - Z)*(y1_pred_W - y))
+  
+  df_F <- get_transformed_data(W,y,Z)
+  output <- get_ATE_PS_false(df_F)
+  pi_pred_X <- output[[1]]
+  ATE_PS_norm_F <- output[[2]]
+  
+  output <- get_PO_false_model(df_F)
+  y0_pred_X <- output[[1]]
+  y1_pred_X <- output[[2]]
+  
+  ATE_outcome_F = (1/n)*sum(Z*(y - y0_pred_X) + (1 - Z)*(y1_pred_X - y))
+  
+  output <- get_DR_estimates(n,y1_pred_W,y1_pred_X,y0_pred_W,y0_pred_X,pi_pred_W,pi_pred_X,df_T)
+  ATE_double_TT <- output[1]
+  ATE_double_TF <- output[2]
+  ATE_double_FT <- output[3]
+  ATE_double_FF <- output[4]
+  
+  output_row <- c(ATE_PS_norm_T,ATE_outcome_T,ATE_PS_norm_F, ATE_outcome_F, 
+                         ATE_double_TT, ATE_double_TF,ATE_double_FT,ATE_double_FF)
+  return(output_row)
+}
+
+```
+
+```{r}
+get_ate_with_se <- function(nSimulations,nBootstrap,n,p){
+  outputSim <- data.frame(matrix(ncol = 8, nrow = nSimulations))
+  colnames(outputSim) <- c("ATE_PS_norm_T","ATE_outcome_T","ATE_PS_norm_F", "ATE_outcome_F", 
+                         "ATE_double_TT", "ATE_double_TF","ATE_double_FT","ATE_double_FF")
+
+  se_sim <- outputSim
+
+  for (i in 1:nSimulations){
+  W <- generate_data(n,p)
+  output_row <- runSimulation(W,n)
+  outputSim[i,] <- output_row
+  
+  bootstrap_samples <- matrix(ncol=8, nrow=nBootstrap)
+  for(j in 1:nBootstrap){
+    bootstraped_index <- sample(1:nrow(W), replace = TRUE)
+    bootstraped_data <- W[bootstraped_index,]
+    bootstrap_samples[j,] <- runSimulation(bootstraped_data,n)
+  }
+  se_sim[i,] <- sqrt(apply(bootstrap_samples,2,var))
+  }
+  
+  output <- list()
+  output[[1]] <- outputSim
+  output[[2]] <- se_sim
+  return(output)
+}
+
+```
+
+
+```{r, warning=FALSE}
+nSimulations <- 20
+nBootstrap <- 100
 p = 4
-W_mean = rep(0, p)
-W_var = diag(4)
-W = rmvnorm(n = n, mean = W_mean, sigma = W_var)
-W_1 = W[,1]
-W_2 = W[,2]
-W_3 = W[,3]
-W_4 = W[,4]
 
-theta = c(-1, 0.5, -0.25, -0.1)
-pi = expit(W %*% theta)
-Z = rbernoulli(n = n, p = pi)
+n_array <- c(100,200,300)
 
-ATE_true = 20
-beta = c(210, 27.4, 13.7, 13.7, 13.7, ATE_true)
-eps = rnorm(n = n, mean = 0, sd = 1)
-y = cbind(rep(1, n), W, Z) %*% beta + eps
+ate_df <- data.frame()
+se_df <- data.frame()
+  
+for (i in 1:length(n_array)){
+  n <- n_array[i]
+  output <- get_ate_with_se(nSimulations,nBootstrap,n,p)
+  ate_df <- rbind(ate_df,output[[1]] %>% mutate(n=n,p=p))
+  se_df <- rbind(se_df,output[[2]] %>% mutate(n=n,p=p))
+}
 
-# Data frame with true covariates
-df_T = data.frame(y, W_1, W_2, W_3, W_4, Z)
+
+ate_df %>% group_by(n,p) %>% summarize(ATE_PS_norm_T=mean(ATE_PS_norm_T),
+                                       ATE_outcome_T=mean(ATE_outcome_T),
+                                       ATE_PS_norm_F=mean(ATE_PS_norm_F),
+                                       ATE_outcome_F=mean(ATE_outcome_F),
+                                       ATE_double_TT=mean(ATE_double_TT),
+                                       ATE_double_TF=mean(ATE_double_TF),
+                                       ATE_double_FT=mean(ATE_double_FT),
+                                       ATE_double_FF=mean(ATE_double_FF)) %>% 
+  melt(id=c("n","p"), variable.name="ATE") %>% 
+  ggplot(aes(x=n,y=value,color=ATE)) +
+  geom_line() + 
+  labs(y="ATE", x="n: sample size")
+
+
+
 ```
 
 We first check our estimates of ATE via true PS model and true outcome model, consecutively.
 
 ```{r, warning = FALSE}
-set.seed(1652)
+#set.seed(1652)
 
-glm_t = glm(formula = Z ~ 0 + W_1 + W_2 + W_3 + W_4, family = binomial(link = "logit"), data = df_T)
-
-pi_pred_W = predict(glm_t, type = "response")
-
-ATE_PS_norm_T = sum(df_T$Z*df_T$y/pi_pred_W)/sum(df_T$Z/pi_pred_W) - 
-  sum((1 - df_T$Z)*df_T$y/(1 - pi_pred_W))/sum((1 - df_T$Z)/(1 - pi_pred_W))
 
 cat("The normalized ATE obtained via true PS model is", ATE_PS_norm_T, "with variance")
 ```
 
 ```{r}
-lm_y = lm(formula = y ~ 1 + W_1 + W_2 + W_3 + W_4 + Z, data = df_T)
-lm_y_summ = summary(lm_y)
-y_coef = lm_y_summ$coefficients
 
-y0_pred_W = y_coef[1] + y_coef[2]*df_T$W_1 + y_coef[3]*df_T$W_2 +
-  y_coef[4]*df_T$W_3 + y_coef[5]*df_T$W_4
-y1_pred_W = y_coef[1] + y_coef[2]*df_T$W_1 + y_coef[3]*df_T$W_2 +
-  y_coef[4]*df_T$W_3 + y_coef[5]*df_T$W_4 + y_coef[6]
 
 df_check = data.frame(Z, y, y0_pred_W, y1_pred_W)
 
-ATE_outcome_T = (1/n)*sum(Z*(y - y0_pred_W) + (1 - Z)*(y1_pred_W - y))
+
 
 # for (s in 1:1000){
 #   
@@ -80,41 +266,22 @@ cat("The ATE obtained via true outcome model is", ATE_outcome_T, "which is the s
 Note that both estimates are reasonably close to the true ATE, $\tau = 20$. Now we turn to the ATE estimates via false PS model and false outcome models, consecutively.
 
 ```{r}
-X_1 = exp(W[,1]/2)
-X_2 = W[, 2]/(1 + exp(W[,1])) + 10
-X_3 = (W[,1]*W[,3]*25 + 0.6)^3
-X_4 = (W[,2] + W[,4] + 20)^2
-X = t(rbind(X_1, X_2, X_3, X_4))
 
-df_F = data.frame(y, X_1, X_2, X_3, X_4, Z)
 ```
 
 ```{r, warning = FALSE}
 set.seed(1652)
 
-glm_t_F = glm(formula = Z ~ 0 + X_1 + X_2 + X_3 + X_4, family = binomial(link = "logit"), data = df_F)
-```
 
-```{r}
-pi_pred_X = predict(glm_t_F, type = "response")
-ATE_PS_norm_F = sum(df_F$Z*df_F$y/pi_pred_X)/sum(df_F$Z/pi_pred_X) -
-  sum((1 - df_F$Z)*df_F$y/(1 - pi_pred_X))/sum((1 - df_F$Z)/(1 - pi_pred_X))
 
 cat("The normalized ATE obtained via false PS model is", ATE_PS_norm_F, "with variance \n")
 cat("Comparing this with the normalized ATE obtained via true PS model", ATE_PS_norm_T, "we do not see so much deviation.")
 ```
 
 ```{r}
-lm_y_F = lm(formula = y ~ 1 + X_1 + X_2 + X_3 + X_4 + Z, data = df_F)
-lm_y_F_summ = summary(lm_y_F)
-y_coef_F = lm_y_F_summ$coefficients
 
-y1_pred_X = y_coef_F[1] + y_coef_F[2]*df_F$X_1 + y_coef_F[3]*df_F$X_2 +
-  y_coef_F[4]*df_F$X_3 + y_coef_F[5]*df_F$X_4 + y_coef_F[6]
-y0_pred_X = y_coef_F[1] + y_coef_F[2]*df_F$X_1 + y_coef_F[3]*df_F$X_2 +
-  y_coef_F[4]*df_F$X_3 + y_coef_F[5]*df_F$X_4
 
-ATE_outcome_F = (1/n)*sum(Z*(y - y0_pred_X) + (1 - Z)*(y1_pred_X - y))
+
 
 # for (s in 1:1000){
 #   
@@ -131,23 +298,18 @@ cat("and from the ATE obtained via true outcome model", ATE_outcome_T)
 Now we take on doubly robust estimators for 4 possible cases: 1)true outcome model and true PS model; 2)true outcome model and false PS model; 3)false outcome model and true PS model; 4)false outcome model and false PS model
 
 ```{r, warning=FALSE}
-ATE_double_TT = (1/n)*sum(y1_pred_W + df_T$Z*(df_T$y - y1_pred_W)/pi_pred_W) - 
-  (1/n)*sum(y0_pred_W + (1 - df_T$Z)*(df_T$y - y0_pred_W)/(1 - pi_pred_W))
   
 cat("The doubly robust ATE obtained with true outcome model and true PS model is", ATE_double_TT, "\n")
 
-ATE_double_TF = (1/n)*sum(y1_pred_W + df_T$Z*(df_T$y - y1_pred_W)/pi_pred_X) - 
-  (1/n)*sum(y0_pred_W + (1 - df_T$Z)*(df_T$y - y0_pred_W)/(1 - pi_pred_X))
+
   
 cat("The doubly robust ATE obtained with true outcome model and false PS model is", ATE_double_TF, "\n")
 
-ATE_double_FT = (1/n)*sum(y1_pred_X + df_T$Z*(df_T$y - y1_pred_X)/pi_pred_W) - 
-  (1/n)*sum(y0_pred_X + (1 - df_T$Z)*(df_T$y - y0_pred_X)/(1 - pi_pred_W))
+
   
 cat("The doubly robust ATE obtained with false outcome model and true PS model is", ATE_double_FT, "\n")
 
-ATE_double_FF = (1/n)*sum(y1_pred_X + df_T$Z*(df_T$y - y1_pred_X)/pi_pred_X) - 
-  (1/n)*sum(y0_pred_X + (1 - df_T$Z)*(df_T$y - y0_pred_X)/(1 - pi_pred_X))
+
   
 cat("The doubly robust ATE obtained with false outcome model and false PS model is", ATE_double_FF, "\n")
 ```
