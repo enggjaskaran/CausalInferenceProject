@@ -1,7 +1,7 @@
 ---
 title: "STA 640 Final Project"
-author: "Joon Sup Park"
-date: '2022 4 17 '
+author: "Joon Sup Park, Jaskaran Singh"
+date: '2022/04/17 '
 output: pdf_document
 ---
 
