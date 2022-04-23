@@ -121,7 +121,8 @@ get_PO_false_model <- function(df_F){
   return(output)
 }
 
-get_DR_estimates <- function(n,y1_pred_W,y1_pred_X,y0_pred_W,y0_pred_X,pi_pred_W,pi_pred_X,df_T){
+get_DR_estimates <- function(n,y1_pred_W,y1_pred_X,y0_pred_W,y0_pred_X,
+                             pi_pred_W,pi_pred_X,df_T){
   ATE_double_TT = (1/n)*sum(y1_pred_W + df_T$Z*(df_T$y - y1_pred_W)/pi_pred_W) - 
   (1/n)*sum(y0_pred_W + (1 - df_T$Z)*(df_T$y - y0_pred_W)/(1 - pi_pred_W))
   
@@ -138,26 +139,26 @@ get_DR_estimates <- function(n,y1_pred_W,y1_pred_X,y0_pred_W,y0_pred_X,pi_pred_W
   return(output)
 }
 
-get_DR_norm_estimates <- function(n,y1_pred_W,y1_pred_X,
-                            y0_pred_W,y0_pred_X,pi_pred_W,pi_pred_X,df_T){
-  ATE_double_TT = (y1_pred_W + sum(df_T$Z*(df_T$y - y1_pred_W)/pi_pred_W)/
+get_DR_norm_estimates <- function(n,y1_pred_W,y1_pred_X,y0_pred_W,y0_pred_X,
+                            pi_pred_W,pi_pred_X,df_T){
+  ATE_double_TT = (mean(y1_pred_W) + sum(df_T$Z*(df_T$y - y1_pred_W)/pi_pred_W)/
                      sum(df_T$Z/pi_pred_W)) - 
-    (y0_pred_W + sum((1 - df_T$Z)*(df_T$y - y0_pred_W)/(1 - pi_pred_W))/
+    (mean(y0_pred_W) + sum((1 - df_T$Z)*(df_T$y - y0_pred_W)/(1 - pi_pred_W))/
        sum((1 - df_T$Z)/(1 - pi_pred_W)))
 
-  ATE_double_TF = (y1_pred_W + sum(df_T$Z*(df_T$y - y1_pred_W)/pi_pred_X)/
+  ATE_double_TF = (mean(y1_pred_W) + sum(df_T$Z*(df_T$y - y1_pred_W)/pi_pred_X)/
                      sum(df_T$Z/pi_pred_X)) - 
-    (y0_pred_W + sum((1 - df_T$Z)*(df_T$y - y0_pred_W)/(1 - pi_pred_X))/
+    (mean(y0_pred_W) + sum((1 - df_T$Z)*(df_T$y - y0_pred_W)/(1 - pi_pred_X))/
        sum((1 - df_T$Z)/(1 - pi_pred_X)))
 
-  ATE_double_FT = (y1_pred_X + sum(df_T$Z*(df_T$y - y1_pred_X)/pi_pred_W)/
+  ATE_double_FT = (mean(y1_pred_X) + sum(df_T$Z*(df_T$y - y1_pred_X)/pi_pred_W)/
                      sum(df_T$Z/pi_pred_W)) - 
-    (y0_pred_X + sum((1 - df_T$Z)*(df_T$y - y0_pred_X)/(1 - pi_pred_W))/
+    (mean(y0_pred_X) + sum((1 - df_T$Z)*(df_T$y - y0_pred_X)/(1 - pi_pred_W))/
        sum((1 - df_T$Z)/(1 - pi_pred_W)))
   
-  ATE_double_FF = (y1_pred_X + sum(df_T$Z*(df_T$y - y1_pred_X)/pi_pred_X)/
+  ATE_double_FF = (mean(y1_pred_X) + sum(df_T$Z*(df_T$y - y1_pred_X)/pi_pred_X)/
                      sum(df_T$Z/pi_pred_X)) - 
-    (y0_pred_X + sum((1 - df_T$Z)*(df_T$y - y0_pred_X)/(1 - pi_pred_X))/
+    (mean(y0_pred_X) + sum((1 - df_T$Z)*(df_T$y - y0_pred_X)/(1 - pi_pred_X))/
        sum((1 - df_T$Z)/(1 - pi_pred_X)))
   
   output <- c(ATE_double_TT,ATE_double_TF,ATE_double_FT,ATE_double_FF)
@@ -218,23 +219,25 @@ runSimulation <- function(W,n){
 ```{r}
 get_ate_with_se <- function(nSimulations,nBootstrap,n,p){
   outputSim <- data.frame(matrix(ncol = 8, nrow = nSimulations))
-  colnames(outputSim) <- c("ATE_PS_norm_T","ATE_outcome_T","ATE_PS_norm_F", "ATE_outcome_F", 
-                         "ATE_double_TT", "ATE_double_TF","ATE_double_FT","ATE_double_FF")
+  colnames(outputSim) <- c("ATE_PS_norm_T","ATE_outcome_T",
+                           "ATE_PS_norm_F", "ATE_outcome_F", 
+                         "ATE_double_TT", "ATE_double_TF",
+                         "ATE_double_FT","ATE_double_FF")
 
   se_sim <- outputSim
 
   for (i in 1:nSimulations){
-  W <- generate_data(n,p)
-  output_row <- runSimulation(W,n)
-  outputSim[i,] <- output_row
-  
-  bootstrap_samples <- matrix(ncol=8, nrow=nBootstrap)
-  for(j in 1:nBootstrap){
-    bootstraped_index <- sample(1:nrow(W), replace = TRUE)
-    bootstraped_data <- W[bootstraped_index,]
-    bootstrap_samples[j,] <- runSimulation(bootstraped_data,n)
-  }
-  se_sim[i,] <- sqrt(apply(bootstrap_samples,2,var))
+    W <- generate_data(n,p)
+    output_row <- runSimulation(W,n)
+    outputSim[i,] <- output_row
+    
+    bootstrap_samples <- matrix(ncol=8, nrow=nBootstrap)
+    for(j in 1:nBootstrap){
+      bootstraped_index <- sample(1:nrow(W), replace = TRUE)
+      bootstraped_data <- W[bootstraped_index,]
+      bootstrap_samples[j,] <- runSimulation(bootstraped_data,n)
+    }
+    se_sim[i,] <- sqrt(apply(bootstrap_samples,2,var))
   }
   
   output <- list()
