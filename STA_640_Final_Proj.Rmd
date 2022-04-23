@@ -138,18 +138,27 @@ get_DR_estimates <- function(n,y1_pred_W,y1_pred_X,y0_pred_W,y0_pred_X,pi_pred_W
   return(output)
 }
 
-get_DR_norm_estimates <- function(n,y1_pred_W,y1_pred_X,y0_pred_W,y0_pred_X,pi_pred_W,pi_pred_X,df_T){
-  ATE_double_TT = (y1_pred_W + sum(df_T$Z*(df_T$y - y1_pred_W)/pi_pred_W)/sum(df_T$Z/pi_pred_W)) - 
-  (y0_pred_W + sum((1 - df_T$Z)*(df_T$y - y0_pred_W)/(1 - pi_pred_W)/sum(df_T$Z/(1 - pi_pred_W)))
+get_DR_norm_estimates <- function(n,y1_pred_W,y1_pred_X,y0_pred_W,y0_pred_X,
+                                  pi_pred_W,pi_pred_X,df_T){
+  ATE_double_TT = (y1_pred_W + sum(df_T$Z*(df_T$y - y1_pred_W)/pi_pred_W)/
+                     sum(df_T$Z/pi_pred_W)) - 
+    (y0_pred_W + sum((1 - df_T$Z)*(df_T$y - y0_pred_W)/(1 - pi_pred_W))/
+       sum(df_T$Z/(1 - pi_pred_W)))
 
-  ATE_double_TF = (y1_pred_W + sum(df_T$Z*(df_T$y - y1_pred_W)/pi_pred_X)/sum(df_T$Z/pi_pred_X)) - 
-  (y0_pred_W + sum((1 - df_T$Z)*(df_T$y - y0_pred_W)/(1 - pi_pred_X)/sum(df_T$Z/(1 - pi_pred_X)))
+  ATE_double_TF = (y1_pred_W + sum(df_T$Z*(df_T$y - y1_pred_W)/pi_pred_X)/
+                     sum(df_T$Z/pi_pred_X)) - 
+    (y0_pred_W + sum((1 - df_T$Z)*(df_T$y - y0_pred_W)/(1 - pi_pred_X))/
+       sum(df_T$Z/(1 - pi_pred_X)))
 
-  ATE_double_FT = (y1_pred_X + sum(df_T$Z*(df_T$y - y1_pred_X)/pi_pred_W)/sum(df_T$Z/pi_pred_W)) - 
-  (y0_pred_X + sum((1 - df_T$Z)*(df_T$y - y0_pred_X)/(1 - pi_pred_W)/sum(df_T$Z/(1 - pi_pred_W)))
+  ATE_double_FT = (y1_pred_X + sum(df_T$Z*(df_T$y - y1_pred_X)/pi_pred_W)/
+                     sum(df_T$Z/pi_pred_W)) - 
+    (y0_pred_X + sum((1 - df_T$Z)*(df_T$y - y0_pred_X)/(1 - pi_pred_W))/
+       sum(df_T$Z/(1 - pi_pred_W)))
   
-  ATE_double_FT = (y1_pred_X + sum(df_T$Z*(df_T$y - y1_pred_X)/pi_pred_X)/sum(df_T$Z/pi_pred_X)) - 
-  (y0_pred_X + sum((1 - df_T$Z)*(df_T$y - y0_pred_X)/(1 - pi_pred_X)/sum(df_T$Z/(1 - pi_pred_X)))
+  ATE_double_FF = (y1_pred_X + sum(df_T$Z*(df_T$y - y1_pred_X)/pi_pred_X)/
+                     sum(df_T$Z/pi_pred_X)) - 
+    (y0_pred_X + sum((1 - df_T$Z)*(df_T$y - y0_pred_X)/(1 - pi_pred_X))/
+       sum(df_T$Z/(1 - pi_pred_X)))
   
   output <- c(ATE_double_TT,ATE_double_TF,ATE_double_FT,ATE_double_FF)
   return(output)
@@ -190,7 +199,9 @@ runSimulation <- function(W,n){
   
   ATE_outcome_F = (1/n)*sum(Z*(y - y0_pred_X) + (1 - Z)*(y1_pred_X - y))
   
-  output <- get_DR_estimates(n,y1_pred_W,y1_pred_X,y0_pred_W,y0_pred_X,pi_pred_W,pi_pred_X,df_T)
+  # output <- get_DR_estimates(n,y1_pred_W,y1_pred_X,y0_pred_W,y0_pred_X,pi_pred_W,pi_pred_X,df_T)
+
+  output <- get_DR_norm_estimates(n,y1_pred_W,y1_pred_X,y0_pred_W,y0_pred_X,pi_pred_W,pi_pred_X,df_T)
   
   ATE_double_TT <- output[1]
   ATE_double_TF <- output[2]
@@ -240,7 +251,7 @@ nSimulations <- 100
 nBootstrap <- 100
 p = 4
 
-n_array <- c(100,300,500,1000,5000)
+n_array <- c(30)
 
 ate_df <- data.frame()
 se_df <- data.frame()
@@ -289,8 +300,8 @@ se_df_p8 <- se_df
 save(se_df_p8, file = "se_df_p8.RData")
 save(ate_df_p8, file = "ate_df_p8.RData")
 
-load(file = "C:/Users/enggj/Downloads/causal_project/p8/se_df_p8.RData")
-load(file = "C:/Users/enggj/Downloads/causal_project/p8/ate_df_p8.RData")
+load(file = "se_df_p8.RData")
+load(file = "ate_df_p8.RData")
 ```
 
 ```{r, warning=FALSE}
