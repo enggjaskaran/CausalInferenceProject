@@ -138,6 +138,24 @@ get_DR_estimates <- function(n,y1_pred_W,y1_pred_X,y0_pred_W,y0_pred_X,pi_pred_W
   return(output)
 }
 
+get_DR_norm_estimates <- function(n,y1_pred_W,y1_pred_X,y0_pred_W,y0_pred_X,pi_pred_W,pi_pred_X,df_T){
+  ATE_double_TT = (y1_pred_W + sum(df_T$Z*(df_T$y - y1_pred_W)/pi_pred_W)/sum(df_T$Z/pi_pred_W)) - 
+  (y0_pred_W + sum((1 - df_T$Z)*(df_T$y - y0_pred_W)/(1 - pi_pred_W)/sum(df_T$Z/(1 - pi_pred_W)))
+
+  ATE_double_TF = (y1_pred_W + sum(df_T$Z*(df_T$y - y1_pred_W)/pi_pred_X)/sum(df_T$Z/pi_pred_X)) - 
+  (y0_pred_W + sum((1 - df_T$Z)*(df_T$y - y0_pred_W)/(1 - pi_pred_X)/sum(df_T$Z/(1 - pi_pred_X)))
+
+  ATE_double_FT = (y1_pred_X + sum(df_T$Z*(df_T$y - y1_pred_X)/pi_pred_W)/sum(df_T$Z/pi_pred_W)) - 
+  (y0_pred_X + sum((1 - df_T$Z)*(df_T$y - y0_pred_X)/(1 - pi_pred_W)/sum(df_T$Z/(1 - pi_pred_W)))
+  
+  ATE_double_FT = (y1_pred_X + sum(df_T$Z*(df_T$y - y1_pred_X)/pi_pred_X)/sum(df_T$Z/pi_pred_X)) - 
+  (y0_pred_X + sum((1 - df_T$Z)*(df_T$y - y0_pred_X)/(1 - pi_pred_X)/sum(df_T$Z/(1 - pi_pred_X)))
+  
+  output <- c(ATE_double_TT,ATE_double_TF,ATE_double_FT,ATE_double_FF)
+  return(output)
+}
+
+
 ```
 
 ```{r}
