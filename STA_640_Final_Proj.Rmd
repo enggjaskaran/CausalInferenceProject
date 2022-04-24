@@ -46,7 +46,7 @@ get_ATE_true_PS <- function(df_T){
   glm_t = glm(formula = Z ~ 0 + ., family = binomial(link = "logit"), data = df_T %>% select(-c(y)))
 
   pi_pred_W = predict(glm_t, type = "response")
-
+  
   ATE_PS_norm_T = sum(df_T$Z*df_T$y/pi_pred_W)/sum(df_T$Z/pi_pred_W) - 
   sum((1 - df_T$Z)*df_T$y/(1 - pi_pred_W))/sum((1 - df_T$Z)/(1 - pi_pred_W))
   
@@ -210,6 +210,7 @@ runSimulation <- function(W,n){
   ATE_double_FT <- output[3]
   ATE_double_FF <- output[4]
   
+  
   output_row <- c(ATE_PS_norm_T,ATE_outcome_T,ATE_PS_norm_F, ATE_outcome_F, 
                          ATE_double_TT, ATE_double_TF,ATE_double_FT,ATE_double_FF)
   return(output_row)
@@ -256,10 +257,10 @@ nBootstrap <- 200
 
 #100,300,500,1000,3000,5000
 n_array <- c(100,300,500,1000,5000)
-p_array <- c(8)
+p_array <- c(4)
 
-ate_df_p8 <- data.frame()
-se_df_p8 <- data.frame()
+ate_df_p4_ow <- data.frame()
+se_df_p4_ow <- data.frame()
 
 for(j in 1:length(p_array)){
   print(c("doing j.. ",j))
@@ -268,14 +269,14 @@ for(j in 1:length(p_array)){
     print(c("doing i.. ",i))
     n <- n_array[i]
     output <- get_ate_with_se(nSimulations,nBootstrap,n,p)
-    ate_df_p8 <- rbind(ate_df_p8,output[[1]] %>% mutate(n=n,p=p))
-    se_df_p8 <- rbind(se_df_p8,output[[2]] %>% mutate(n=n,p=p))
+    ate_df_p4_ow <- rbind(ate_df_p4_ow,output[[1]] %>% mutate(n=n,p=p))
+    se_df_p4_ow <- rbind(se_df_p4_ow,output[[2]] %>% mutate(n=n,p=p))
   }
 }  
 
 
 
-ate_df %>% filter(p==4) %>% 
+ate_df_p4 %>% filter(p==4) %>% 
           group_by(n,p) %>% summarize(ATE_PS_norm_T=mean(ATE_PS_norm_T),
                                        ATE_outcome_T=mean(ATE_outcome_T),
                                        ATE_PS_norm_F=mean(ATE_PS_norm_F),
@@ -290,7 +291,7 @@ ate_df %>% filter(p==4) %>%
   labs(y="ATE", x="n: sample size")
 
 
-se_df %>% filter(p==4) %>% 
+se_df_p4 %>% filter(p==4) %>% 
           group_by(n,p) %>% summarize(ATE_PS_norm_T=mean(ATE_PS_norm_T),
                                        ATE_outcome_T=mean(ATE_outcome_T),
                                        ATE_PS_norm_F=mean(ATE_PS_norm_F),
