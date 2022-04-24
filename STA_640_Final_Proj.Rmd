@@ -14,6 +14,7 @@ library(PSweight)
 library(mvtnorm)
 library(rje)
 library(reshape2)
+library(gridExtra)
 ```
 
 ```{r}
@@ -251,24 +252,31 @@ get_ate_with_se <- function(nSimulations,nBootstrap,n,p){
 
 ```{r, warning=FALSE}
 nSimulations <- 100
-nBootstrap <- 100
-p = 4
+nBootstrap <- 200
 
-n_array <- c(30)
+#100,300,500,1000,3000,5000
+n_array <- c(100,300,500,1000,5000)
+p_array <- c(8)
 
-ate_df <- data.frame()
-se_df <- data.frame()
-  
-for (i in 1:length(n_array)){
-  print(c("doing.. ",i))
-  n <- n_array[i]
-  output <- get_ate_with_se(nSimulations,nBootstrap,n,p)
-  ate_df <- rbind(ate_df,output[[1]] %>% mutate(n=n,p=p))
-  se_df <- rbind(se_df,output[[2]] %>% mutate(n=n,p=p))
-}
+ate_df_p8 <- data.frame()
+se_df_p8 <- data.frame()
+
+for(j in 1:length(p_array)){
+  print(c("doing j.. ",j))
+  p <- p_array[j]
+  for (i in 1:length(n_array)){
+    print(c("doing i.. ",i))
+    n <- n_array[i]
+    output <- get_ate_with_se(nSimulations,nBootstrap,n,p)
+    ate_df_p8 <- rbind(ate_df_p8,output[[1]] %>% mutate(n=n,p=p))
+    se_df_p8 <- rbind(se_df_p8,output[[2]] %>% mutate(n=n,p=p))
+  }
+}  
 
 
-ate_df %>% group_by(n,p) %>% summarize(ATE_PS_norm_T=mean(ATE_PS_norm_T),
+
+ate_df %>% filter(p==4) %>% 
+          group_by(n,p) %>% summarize(ATE_PS_norm_T=mean(ATE_PS_norm_T),
                                        ATE_outcome_T=mean(ATE_outcome_T),
                                        ATE_PS_norm_F=mean(ATE_PS_norm_F),
                                        ATE_outcome_F=mean(ATE_outcome_F),
@@ -282,7 +290,8 @@ ate_df %>% group_by(n,p) %>% summarize(ATE_PS_norm_T=mean(ATE_PS_norm_T),
   labs(y="ATE", x="n: sample size")
 
 
-se_df %>% group_by(n,p) %>% summarize(ATE_PS_norm_T=mean(ATE_PS_norm_T),
+se_df %>% filter(p==4) %>% 
+          group_by(n,p) %>% summarize(ATE_PS_norm_T=mean(ATE_PS_norm_T),
                                        ATE_outcome_T=mean(ATE_outcome_T),
                                        ATE_PS_norm_F=mean(ATE_PS_norm_F),
                                        ATE_outcome_F=mean(ATE_outcome_F),
@@ -300,91 +309,73 @@ se_df %>% group_by(n,p) %>% summarize(ATE_PS_norm_T=mean(ATE_PS_norm_T),
 ate_df_p8 <- ate_df
 se_df_p8 <- se_df
 
-save(se_df_p8, file = "se_df_p8.RData")
-save(ate_df_p8, file = "ate_df_p8.RData")
+save(se_df_p4, file = "se_df_p4.RData")
+save(ate_df_p4, file = "ate_df_p4.RData")
 
 load(file = "se_df_p8.RData")
 load(file = "ate_df_p8.RData")
 ```
 
 ```{r, warning=FALSE}
-for (i in 1:colnames(ate_df))
+#graphs
+bias <- cbind(ate_df %>% select(-c(n,p)) -20, ate_df %>% select(c(n,p)))
+bias_div_se <- cbind((bias %>% select(-c(n,p)))/(se_df_p4 %>% select(-c(n,p))), bias %>% select(c(n,p)))
 
+bias_div_se %>% filter(p==4) %>% 
+          group_by(n,p) %>% summarize(ATE_PS_norm_T=mean(ATE_PS_norm_T),
+                                       ATE_outcome_T=mean(ATE_outcome_T),
+                                       ATE_PS_norm_F=mean(ATE_PS_norm_F),
+                                       ATE_outcome_F=mean(ATE_outcome_F),
+                                       ATE_double_TT=mean(ATE_double_TT),
+                                       ATE_double_TF=mean(ATE_double_TF),
+                                       ATE_double_FT=mean(ATE_double_FT),
+                                       ATE_double_FF=mean(ATE_double_FF)) %>% 
+  melt(id=c("n","p"), variable.name="ATE") %>% 
+  ggplot(aes(x=n,y=value,color=ATE)) +
+  geom_line() + 
+  labs(y="ATE", x="n: sample size")
 ```
-
-
-
-We first check our estimates of ATE via true PS model and true outcome model, consecutively.
-
-```{r, warning = FALSE}
-#set.seed(1652)
-
-
-cat("The normalized ATE obtained via true PS model is", ATE_PS_norm_T, "with variance")
-```
-
-```{r}
-
-
-df_check = data.frame(Z, y, y0_pred_W, y1_pred_W)
-
-
-
-# for (s in 1:1000){
-#   
-# }
-
-cat("The ATE obtained via true outcome model is", ATE_outcome_T, "which is the same as the coefficient on Z in the outcome model", lm_y_summ$coefficients[6], "with variance", lm_y_summ$cov.unscaled[6,6])
-```
-
-Note that both estimates are reasonably close to the true ATE, $\tau = 20$. Now we turn to the ATE estimates via false PS model and false outcome models, consecutively.
-
-```{r}
-
-```
-
-```{r, warning = FALSE}
-set.seed(1652)
-
-
-
-cat("The normalized ATE obtained via false PS model is", ATE_PS_norm_F, "with variance \n")
-cat("Comparing this with the normalized ATE obtained via true PS model", ATE_PS_norm_T, "we do not see so much deviation.")
-```
-
-```{r}
-
-
-
-
-# for (s in 1:1000){
-#   
-# }
-
-cat("The ATE obtained via false outcome model is", ATE_outcome_F, "\n")
-cat("which is the same as the coefficient on Z in the outcome model", 
-    lm_y_F_summ$coefficients[6], "with variance", lm_y_F_summ$cov.unscaled[6,6],
-    "\n")
-cat("Note that there is some deviation from the true ATE of", 20, "\n")
-cat("and from the ATE obtained via true outcome model", ATE_outcome_T)
-```
-
-Now we take on doubly robust estimators for 4 possible cases: 1)true outcome model and true PS model; 2)true outcome model and false PS model; 3)false outcome model and true PS model; 4)false outcome model and false PS model
 
 ```{r, warning=FALSE}
-  
-cat("The doubly robust ATE obtained with true outcome model and true PS model is", ATE_double_TT, "\n")
+#ate_df_p4 %>% filter(p==4) %>% select(-c(p)) %>% 
+#  melt(id=c("n"), variable.name = "ATE") %>% 
+#  ggplot(aes(x=value,y=..density..,fill=ATE))+
+#  geom_density(alpha=0.3)+xlim(0,30)
 
+p1 <- ate_df_p4 %>% select(c(ATE_PS_norm_T)) %>%   
+  ggplot(aes(x=ATE_PS_norm_T,y=..density..))+
+  geom_density(alpha=0.3,fill="blue")
 
-  
-cat("The doubly robust ATE obtained with true outcome model and false PS model is", ATE_double_TF, "\n")
+p2 <- ate_df_p4 %>% select(c(ATE_outcome_T)) %>%   
+  ggplot(aes(x=ATE_outcome_T,y=..density..))+
+  geom_density(alpha=0.3,fill="blue")
 
+p3 <- ate_df_p4 %>% select(c(ATE_PS_norm_F)) %>%   
+  ggplot(aes(x=ATE_PS_norm_F,y=..density..))+
+  geom_density(alpha=0.3,fill="blue")
 
-  
-cat("The doubly robust ATE obtained with false outcome model and true PS model is", ATE_double_FT, "\n")
+p4 <- ate_df_p4 %>% select(c(ATE_outcome_F)) %>%   
+  ggplot(aes(x=ATE_outcome_F,y=..density..))+
+  geom_density(alpha=0.3,fill="blue")
 
+p5 <- ate_df_p4 %>% select(c(ATE_double_TT)) %>%   
+  ggplot(aes(x=ATE_double_TT,y=..density..))+
+  geom_density(alpha=0.3,fill="blue")
 
-  
-cat("The doubly robust ATE obtained with false outcome model and false PS model is", ATE_double_FF, "\n")
+p6 <- ate_df_p4 %>% select(c(ATE_double_TF)) %>%   
+  ggplot(aes(x=ATE_double_TF,y=..density..))+
+  geom_density(alpha=0.3,fill="blue")
+
+p7 <- ate_df_p4 %>% select(c(ATE_double_FT)) %>%   
+  ggplot(aes(x=ATE_double_FT,y=..density..))+
+  geom_density(alpha=0.3,fill="blue")
+
+p8 <- ate_df_p4 %>% select(c(ATE_double_FF)) %>%   
+  ggplot(aes(x=ATE_double_FF,y=..density..))+
+  geom_density(alpha=0.3,fill="blue")
+
+grid.arrange(p1, p2, p3, p4, p5, p6, p7, p8, nrow=3)
 ```
+
+
 
