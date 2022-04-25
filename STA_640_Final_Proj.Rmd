@@ -259,8 +259,8 @@ nBootstrap <- 200
 n_array <- c(100,300,500,1000,5000)
 p_array <- c(4)
 
-ate_df_p4_ow <- data.frame()
-se_df_p4_ow <- data.frame()
+ate_df_p4_w10 <- data.frame()
+se_df_p4_w10 <- data.frame()
 
 for(j in 1:length(p_array)){
   print(c("doing j.. ",j))
@@ -269,14 +269,14 @@ for(j in 1:length(p_array)){
     print(c("doing i.. ",i))
     n <- n_array[i]
     output <- get_ate_with_se(nSimulations,nBootstrap,n,p)
-    ate_df_p4_ow <- rbind(ate_df_p4_ow,output[[1]] %>% mutate(n=n,p=p))
-    se_df_p4_ow <- rbind(se_df_p4_ow,output[[2]] %>% mutate(n=n,p=p))
+    ate_df_p4_w10 <- rbind(ate_df_p4_w10,output[[1]] %>% mutate(n=n,p=p))
+    se_df_p4_w10 <- rbind(se_df_p4_w10,output[[2]] %>% mutate(n=n,p=p))
   }
 }  
 
 
 
-ate_df_p4 %>% filter(p==4) %>% 
+p1 <- ate_df_p4_w10 %>% filter(p==4) %>% 
           group_by(n,p) %>% summarize(ATE_PS_norm_T=mean(ATE_PS_norm_T),
                                        ATE_outcome_T=mean(ATE_outcome_T),
                                        ATE_PS_norm_F=mean(ATE_PS_norm_F),
@@ -288,10 +288,10 @@ ate_df_p4 %>% filter(p==4) %>%
   melt(id=c("n","p"), variable.name="ATE") %>% 
   ggplot(aes(x=n,y=value,color=ATE)) +
   geom_line() + 
-  labs(y="ATE", x="n: sample size")
+  labs(y="ATE", x="n: sample size",title="dimension: 4, 10x variance of simulated data")
 
 
-se_df_p4 %>% filter(p==4) %>% 
+p2 <- se_df_p4_w10 %>% filter(p==4) %>% 
           group_by(n,p) %>% summarize(ATE_PS_norm_T=mean(ATE_PS_norm_T),
                                        ATE_outcome_T=mean(ATE_outcome_T),
                                        ATE_PS_norm_F=mean(ATE_PS_norm_F),
@@ -303,26 +303,27 @@ se_df_p4 %>% filter(p==4) %>%
   melt(id=c("n","p"), variable.name="ATE") %>% 
   ggplot(aes(x=n,y=value,color=ATE)) +
   geom_line() + 
-  labs(y="SE", x="n: sample size")
+  labs(y="SE", x="n: sample size",title="dimension: 4, 10x variance of simulated data")
 
+grid.arrange(p1, p2, nrow=2)
 
 # saving RData files
 ate_df_p8 <- ate_df
 se_df_p8 <- se_df
 
-save(se_df_p4, file = "se_df_p4.RData")
-save(ate_df_p4, file = "ate_df_p4.RData")
+save(ate_df_p4_w10, file = "ate_df_p4_w10.RData")
+save(se_df_p4_w10, file = "se_df_p4_w10.RData")
 
+setwd("C:/Users/enggj/Downloads/CausalProject/new")
+getwd()
 load(file = "se_df_p8.RData")
 load(file = "ate_df_p8.RData")
+load(file = "se_df_p4.RData")
+load(file = "ate_df_p4.RData")
 ```
 
 ```{r, warning=FALSE}
-#graphs
-bias <- cbind(ate_df %>% select(-c(n,p)) -20, ate_df %>% select(c(n,p)))
-bias_div_se <- cbind((bias %>% select(-c(n,p)))/(se_df_p4 %>% select(-c(n,p))), bias %>% select(c(n,p)))
-
-bias_div_se %>% filter(p==4) %>% 
+p1 <- ate_df_p4 %>% filter(p==4) %>% 
           group_by(n,p) %>% summarize(ATE_PS_norm_T=mean(ATE_PS_norm_T),
                                        ATE_outcome_T=mean(ATE_outcome_T),
                                        ATE_PS_norm_F=mean(ATE_PS_norm_F),
@@ -334,7 +335,151 @@ bias_div_se %>% filter(p==4) %>%
   melt(id=c("n","p"), variable.name="ATE") %>% 
   ggplot(aes(x=n,y=value,color=ATE)) +
   geom_line() + 
-  labs(y="ATE", x="n: sample size")
+  labs(y="ATE", x="n: sample size", title="dimension: 4")+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+p2 <- ate_df_p8 %>% filter(p==8) %>% 
+          group_by(n,p) %>% summarize(ATE_PS_norm_T=mean(ATE_PS_norm_T),
+                                       ATE_outcome_T=mean(ATE_outcome_T),
+                                       ATE_PS_norm_F=mean(ATE_PS_norm_F),
+                                       ATE_outcome_F=mean(ATE_outcome_F),
+                                       ATE_double_TT=mean(ATE_double_TT),
+                                       ATE_double_TF=mean(ATE_double_TF),
+                                       ATE_double_FT=mean(ATE_double_FT),
+                                       ATE_double_FF=mean(ATE_double_FF)) %>% 
+  melt(id=c("n","p"), variable.name="ATE") %>% 
+  ggplot(aes(x=n,y=value,color=ATE)) +
+  geom_line() + 
+  labs(y="ATE", x="n: sample size", title="dimension: 8")+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+p3 <- se_df_p4 %>% filter(p==4) %>% 
+          group_by(n,p) %>% summarize(ATE_PS_norm_T=mean(ATE_PS_norm_T),
+                                       ATE_outcome_T=mean(ATE_outcome_T),
+                                       ATE_PS_norm_F=mean(ATE_PS_norm_F),
+                                       ATE_outcome_F=mean(ATE_outcome_F),
+                                       ATE_double_TT=mean(ATE_double_TT),
+                                       ATE_double_TF=mean(ATE_double_TF),
+                                       ATE_double_FT=mean(ATE_double_FT),
+                                       ATE_double_FF=mean(ATE_double_FF)) %>% 
+  melt(id=c("n","p"), variable.name="ATE") %>% 
+  ggplot(aes(x=n,y=value,color=ATE)) +
+  geom_line() + 
+  labs(y="SE of ATE", x="n: sample size", title="dimension: 4")+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+p4 <- se_df_p8 %>% filter(p==8) %>% 
+          group_by(n,p) %>% summarize(ATE_PS_norm_T=mean(ATE_PS_norm_T),
+                                       ATE_outcome_T=mean(ATE_outcome_T),
+                                       ATE_PS_norm_F=mean(ATE_PS_norm_F),
+                                       ATE_outcome_F=mean(ATE_outcome_F),
+                                       ATE_double_TT=mean(ATE_double_TT),
+                                       ATE_double_TF=mean(ATE_double_TF),
+                                       ATE_double_FT=mean(ATE_double_FT),
+                                       ATE_double_FF=mean(ATE_double_FF)) %>% 
+  melt(id=c("n","p"), variable.name="ATE") %>% 
+  ggplot(aes(x=n,y=value,color=ATE)) +
+  geom_line() + 
+  labs(y="SE of ATE", x="n: sample size", title="dimension: 8")+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+grid.arrange(p1, p2, p3, p4, nrow=2)
+```
+
+```{r, warning=FALSE}
+p1 <- ate_df_p4 %>% filter(p==4) %>% 
+          group_by(n,p) %>% summarize(ATE_PS_norm_T=mean(ATE_PS_norm_T),
+                                       ATE_outcome_T=mean(ATE_outcome_T),
+                                       ATE_PS_norm_F=mean(ATE_PS_norm_F),
+                                       ATE_outcome_F=mean(ATE_outcome_F),
+                                       ATE_double_TT=mean(ATE_double_TT),
+                                       ATE_double_TF=mean(ATE_double_TF),
+                                       ATE_double_FT=mean(ATE_double_FT),
+                                       ATE_double_FF=mean(ATE_double_FF)) %>% 
+  melt(id=c("n","p"), variable.name="ATE") %>% 
+  ggplot(aes(x=n,y=value,color=ATE)) +
+  geom_line() + 
+  labs(y="ATE", x="n: sample size", title="dimension: 4")+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+p2 <- ate_df_p8 %>% filter(p==8) %>% 
+          group_by(n,p) %>% summarize(ATE_PS_norm_T=mean(ATE_PS_norm_T),
+                                       ATE_outcome_T=mean(ATE_outcome_T),
+                                       ATE_PS_norm_F=mean(ATE_PS_norm_F),
+                                       ATE_outcome_F=mean(ATE_outcome_F),
+                                       ATE_double_TT=mean(ATE_double_TT),
+                                       ATE_double_TF=mean(ATE_double_TF),
+                                       ATE_double_FT=mean(ATE_double_FT),
+                                       ATE_double_FF=mean(ATE_double_FF)) %>% 
+  melt(id=c("n","p"), variable.name="ATE") %>% 
+  ggplot(aes(x=n,y=value,color=ATE)) +
+  geom_line() + 
+  labs(y="ATE", x="n: sample size", title="dimension: 8")+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+p3 <- se_df_p4 %>% filter(p==4) %>% 
+          group_by(n,p) %>% summarize(ATE_PS_norm_T=mean(ATE_PS_norm_T),
+                                       ATE_outcome_T=mean(ATE_outcome_T),
+                                       ATE_PS_norm_F=mean(ATE_PS_norm_F),
+                                       ATE_outcome_F=mean(ATE_outcome_F),
+                                       ATE_double_TT=mean(ATE_double_TT),
+                                       ATE_double_TF=mean(ATE_double_TF),
+                                       ATE_double_FT=mean(ATE_double_FT),
+                                       ATE_double_FF=mean(ATE_double_FF)) %>% 
+  melt(id=c("n","p"), variable.name="ATE") %>% 
+  ggplot(aes(x=n,y=value,color=ATE)) +
+  geom_line() + 
+  labs(y="SE of ATE", x="n: sample size", title="dimension: 4")+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+p4 <- se_df_p8 %>% filter(p==8) %>% 
+          group_by(n,p) %>% summarize(ATE_PS_norm_T=mean(ATE_PS_norm_T),
+                                       ATE_outcome_T=mean(ATE_outcome_T),
+                                       ATE_PS_norm_F=mean(ATE_PS_norm_F),
+                                       ATE_outcome_F=mean(ATE_outcome_F),
+                                       ATE_double_TT=mean(ATE_double_TT),
+                                       ATE_double_TF=mean(ATE_double_TF),
+                                       ATE_double_FT=mean(ATE_double_FT),
+                                       ATE_double_FF=mean(ATE_double_FF)) %>% 
+  melt(id=c("n","p"), variable.name="ATE") %>% 
+  ggplot(aes(x=n,y=value,color=ATE)) +
+  geom_line() + 
+  labs(y="SE of ATE", x="n: sample size", title="dimension: 8")+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+grid.arrange(p1, p2, p3, p4, nrow=2)
+```
+
+```{r, warning=FALSE}
+#graphs
+
+bias <- cbind(ate_df_p4 %>% select(-c(n,p)) -20, ate_df_p4 %>% select(c(n,p)))
+bias_div_se_p4 <- cbind((bias %>% select(-c(n,p)))/(se_df_p4 %>% select(-c(n,p))), bias %>% select(c(n,p)))
+
+p1 <- bias_div_se_p4 %>% filter(p==4) %>% 
+          group_by(n,p) %>% summarize(ATE_PS_norm_T=mean(ATE_PS_norm_T),
+                                       ATE_outcome_T=mean(ATE_outcome_T),
+                                       ATE_PS_norm_F=mean(ATE_PS_norm_F),
+                                       ATE_outcome_F=mean(ATE_outcome_F),
+                                       ATE_double_TT=mean(ATE_double_TT),
+                                       ATE_double_TF=mean(ATE_double_TF),
+                                       ATE_double_FT=mean(ATE_double_FT),
+                                       ATE_double_FF=mean(ATE_double_FF)) %>% 
+  melt(id=c("n","p"), variable.name="ATE") %>% 
+  ggplot(aes(x=n,y=value,color=ATE)) +
+  geom_line() + 
+  labs(y="Bias/SE", x="n: sample size", title="dimension: 4")
+
+bias <- cbind(ate_df_p8 %>% select(-c(n,p)) -20, ate_df_p8 %>% select(c(n,p)))
+bias_div_se_p8 <- cbind((bias %>% select(-c(n,p)))/(se_df_p8 %>% select(-c(n,p))), bias %>% select(c(n,p)))
+
+p2 <- bias_div_se_p8 %>% filter(p==8) %>% 
+          group_by(n,p) %>% summarize(ATE_PS_norm_T=mean(ATE_PS_norm_T),
+                                       ATE_outcome_T=mean(ATE_outcome_T),
+                                       ATE_PS_norm_F=mean(ATE_PS_norm_F),
+                                       ATE_outcome_F=mean(ATE_outcome_F),
+                                       ATE_double_TT=mean(ATE_double_TT),
+                                       ATE_double_TF=mean(ATE_double_TF),
+                                       ATE_double_FT=mean(ATE_double_FT),
+                                       ATE_double_FF=mean(ATE_double_FF)) %>% 
+  melt(id=c("n","p"), variable.name="ATE") %>% 
+  ggplot(aes(x=n,y=value,color=ATE)) +
+  geom_line() + 
+  labs(y="Bias/SE", x="n: sample size", title="dimension: 8")
+
+grid.arrange(p1, p2, nrow=2)
 ```
 
 ```{r, warning=FALSE}
@@ -343,35 +488,35 @@ bias_div_se %>% filter(p==4) %>%
 #  ggplot(aes(x=value,y=..density..,fill=ATE))+
 #  geom_density(alpha=0.3)+xlim(0,30)
 
-p1 <- ate_df_p4 %>% select(c(ATE_PS_norm_T)) %>%   
+p1 <- ate_df_p4 %>% filter(n==300) %>% select(c(ATE_PS_norm_T)) %>%   
   ggplot(aes(x=ATE_PS_norm_T,y=..density..))+
   geom_density(alpha=0.3,fill="blue")
 
-p2 <- ate_df_p4 %>% select(c(ATE_outcome_T)) %>%   
+p2 <- ate_df_p4 %>% filter(n==300) %>% select(c(ATE_outcome_T)) %>%   
   ggplot(aes(x=ATE_outcome_T,y=..density..))+
   geom_density(alpha=0.3,fill="blue")
 
-p3 <- ate_df_p4 %>% select(c(ATE_PS_norm_F)) %>%   
+p3 <- ate_df_p4 %>% filter(n==300) %>% select(c(ATE_PS_norm_F)) %>%   
   ggplot(aes(x=ATE_PS_norm_F,y=..density..))+
   geom_density(alpha=0.3,fill="blue")
 
-p4 <- ate_df_p4 %>% select(c(ATE_outcome_F)) %>%   
+p4 <- ate_df_p4 %>% filter(n==300) %>% select(c(ATE_outcome_F)) %>%   
   ggplot(aes(x=ATE_outcome_F,y=..density..))+
   geom_density(alpha=0.3,fill="blue")
 
-p5 <- ate_df_p4 %>% select(c(ATE_double_TT)) %>%   
+p5 <- ate_df_p4 %>% filter(n==300) %>% select(c(ATE_double_TT)) %>%   
   ggplot(aes(x=ATE_double_TT,y=..density..))+
   geom_density(alpha=0.3,fill="blue")
 
-p6 <- ate_df_p4 %>% select(c(ATE_double_TF)) %>%   
+p6 <- ate_df_p4 %>% filter(n==300) %>% select(c(ATE_double_TF)) %>%   
   ggplot(aes(x=ATE_double_TF,y=..density..))+
   geom_density(alpha=0.3,fill="blue")
 
-p7 <- ate_df_p4 %>% select(c(ATE_double_FT)) %>%   
+p7 <- ate_df_p4 %>% filter(n==300) %>% select(c(ATE_double_FT)) %>%   
   ggplot(aes(x=ATE_double_FT,y=..density..))+
   geom_density(alpha=0.3,fill="blue")
 
-p8 <- ate_df_p4 %>% select(c(ATE_double_FF)) %>%   
+p8 <- ate_df_p4 %>% filter(n==300) %>% select(c(ATE_double_FF)) %>%   
   ggplot(aes(x=ATE_double_FF,y=..density..))+
   geom_density(alpha=0.3,fill="blue")
 
